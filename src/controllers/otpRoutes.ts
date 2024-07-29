@@ -5,7 +5,7 @@ import "dotenv/config";
 
 const otpRoutes = express.Router();
 
-function generateRandomSixDigits() {
+export function generateRandomSixDigits() {
   // Generate a random number between 100000 and 999999 (inclusive)
   const randomNumber = Math.floor(1000 + Math.random() * 9000);
   return randomNumber;

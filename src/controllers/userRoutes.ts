@@ -6,6 +6,9 @@ import { ApiError } from "../hooks/custom_error/customError";
 import { Unauthorized } from "../hooks/custom_error/customError";
 import { NotFoundError } from "../hooks/custom_error/customError";
 import { generateToken, verifyToken } from "../services/jsonwebtoken";
+import { generateRandomSixDigits } from "./otpRoutes";
+import { sendEmail } from "../services/nodeMailer";
+import "dotenv/config";
 const userRoutes = express.Router();
 const saltRound = 10;
 
@@ -128,6 +131,88 @@ userRoutes.post(
         return res.status(201).send({ user: "user not exist" });
       } else {
         throw new NotFoundError("user Exist");
+      }
+    } catch (error) {
+      next(error);
+      throw new ApiError("");
+    }
+  }
+);
+
+userRoutes.post(
+  "/forgotpasswordOtp",
+  async (
+    req: Request<{}, {}, { email: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const { email } = req.body;
+      const fromEmail = process.env.EMAIL;
+      const randomOTP = generateRandomSixDigits();
+      if (!fromEmail) {
+        throw new NotFoundError("Email environment variable is not defined");
+      }
+      const existingUser = await userModel.findOne({
+        email: email,
+      });
+
+      if (!existingUser) {
+        throw new NotFoundError("user Exist");
+      }
+
+      const mailOptions = {
+        from: fromEmail,
+        to: email,
+        subject: "OTP FOR RECOVER ACCOUNT",
+        text: `Hello ${email}
+
+            Your OTP : ${randomOTP}`,
+      };
+
+      const findById = existingUser._id;
+      const sendDataEmail = await sendEmail(mailOptions);
+      const findUserName = existingUser.username;
+      if (sendDataEmail) {
+        return res.status(200).send({
+          otp: randomOTP,
+          username: findUserName,
+          recoverid: findById,
+        });
+      } else {
+        throw new NotFoundError("invalid");
+      }
+    } catch (error) {
+      next(error);
+      throw new ApiError("");
+    }
+  }
+);
+
+userRoutes.put(
+  "/updateaccount/:id",
+  async (
+    req: Request<{ id: string }, {}, { password: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const hash = await bcrypt.genSalt(saltRound);
+
+      const { id } = req.params;
+      const { password } = req.body;
+
+      const passwordHast = await bcrypt.hash(password, hash);
+
+      const findIdAndUpdate = await userModel.findByIdAndUpdate(
+        { _id: id },
+        { password: passwordHast }
+      );
+
+      if (findIdAndUpdate) {
+        return res.status(200).send({ findIdAndUpdate });
+      } else {
+        throw new NotFoundError("not updated");
       }
     } catch (error) {
       next(error);

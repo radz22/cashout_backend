@@ -118,4 +118,5 @@ dataUserRoutes.get(
     }
   }
 );
+
 export default dataUserRoutes;
